@@ -7,6 +7,7 @@ public class ReportMenuConfig
     public string RawDataInput { get; set; } = string.Empty;
     public UserType SelectedUserType { get; set; }
     public string SelectedFormat { get; set; } = string.Empty;
+    public DeliveryChannel SelectChannel { get; set; }
 
     // Optional decorators
     public bool ApplyHeader { get; set; }

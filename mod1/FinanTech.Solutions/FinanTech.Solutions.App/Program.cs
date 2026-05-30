@@ -74,6 +74,17 @@ do
         Console.WriteLine("\nRESULTADO DEL REPORTE:");
         Console.ResetColor();
         Console.WriteLine(finalReport.Export());
+
+        Console.WriteLine("\nPress any key to continue...");
+        Console.ReadKey();
+
+        var deliveryChannel = MenuHandler.SendFinalReport();
+        menuConfig.SelectChannel = deliveryChannel;
+
+        var deliveryStrategy = DeliveryStrategyFactory.GetStrategy(menuConfig.SelectChannel);
+
+       
+        deliveryStrategy.Deliver(finalReport.Export(), menuConfig.SelectChannel.ToString());
     }
     catch (Exception ex)
     {
