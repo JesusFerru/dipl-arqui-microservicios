@@ -1,7 +1,11 @@
 # Proyecto Final - Modulo 1 - Diplomado Arquitectura con Microservicios
 ## Luis Jesús Ferrufino Burgos - 856214 
 
-# Descripción del Proyecto
+# Tabla de Contenido
+- [Descripción del Proyecto](#descripción-del-proyecto)
+- [Patrones de diseño aplicados](#patrones-de-diseño-aplicados)
+
+## 1. Descripción del Proyecto 
 
 Los Reportes para la empresa FinantialTech Solutions tiene las siguientes características:
 
@@ -56,3 +60,13 @@ Los Reportes para la empresa FinantialTech Solutions tiene las siguientes caract
 - Marca de agua
 - Cifrado
 - Compresión
+
+## 2. Patrones de diseño aplicados
+
+### 1. Strategy
+
+
+### 2. Factory
+
+
+
