@@ -4,6 +4,7 @@ using Finantech.Solutions.Core.Models.Enums;
 using Finantech.Solutions.Core.Models;
 using Finantech.Solutions.Core.Strategy.Intefaces;
 using FinanTech.Solutions.App.Handler;
+using Finantech.Solutions.Core.Decorator;
 
 // Encerrar todo en un do while para finalizar el programa después de mostrar el resultado
 int retryReport = 1;
@@ -30,12 +31,43 @@ do
 
         // PATRÓN BUILDER: Resolve format and construct final structural layout
         IReportBuilder reportBuilder = ReportBuilderFactory.GetBuilder(menuConfig.SelectedFormat);
-        Report finalReport = reportBuilder
+        Report structuralReport = reportBuilder
                                 .Initialize(processedReport)
                                 .ApplyFormatLayout()
                                 .Build();
 
         Console.WriteLine($"-> [ÉXITO] Reporte generado en formato: {menuConfig.SelectedFormat}.");
+
+        // PATRÓN DECORATOR: Business rules conditional execution
+        IReportComponent finalReport = structuralReport;
+
+        // Rule 1: HeaderDecorator ONLY for Executive users
+        if (menuConfig.SelectedUserType == UserType.Executive)
+        {
+            finalReport = new HeaderDecorator(finalReport);
+            Console.WriteLine("-> [DECORATOR AUTOMÁTICO] Aplicado Encabezado por perfil Ejecutivo.");
+        }
+
+        // Manual Option: Watermark (Always available)
+        if (menuConfig.ApplyWatermark)
+        {
+            finalReport = new WatermarkDecorator(finalReport);
+            Console.WriteLine("-> [DECORATOR MANUAL] Capa de Marca de Agua aplicada.");
+        }
+
+        // Rule 2: EncryptionDecorator ONLY if the report contains encrypted data (like Auditor)
+        if (!string.IsNullOrEmpty(structuralReport.EncryptedCode))
+        {
+            finalReport = new EncryptionDecorator(finalReport);
+            Console.WriteLine("-> [DECORATOR AUTOMÁTICO] Contenido cifrado por requerimiento de seguridad.");
+        }
+
+        // Manual Option: Compression (Always available)
+        if (menuConfig.ApplyCompression)
+        {
+            finalReport = new CompressionDecorator(finalReport);
+            Console.WriteLine("-> [DECORATOR MANUAL] Capa de Compresión ZIP aplicada.");
+        }
 
         // OUTPUT: Display final structured output report
         Console.ForegroundColor = ConsoleColor.Green;

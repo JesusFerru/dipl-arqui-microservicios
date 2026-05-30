@@ -64,6 +64,14 @@ namespace FinanTech.Solutions.App.Handler
                     config.SelectedFormat = "PDF";
                     break;
             }
+            // Optional Improvements (Decorator)
+            Console.WriteLine("\n[Paso 4] Seleccione las mejoras opcionales (S/N):");
+
+            Console.Write("¿Agregar Marca de Agua de seguridad? (S/N): ");
+            config.ApplyWatermark = Console.ReadLine()?.ToUpper() == "S";
+
+            Console.Write("¿Aplicar Compresión final ZIP? (S/N): ");
+            config.ApplyCompression = Console.ReadLine()?.ToUpper() == "S";
 
             return config;
         }

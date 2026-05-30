@@ -69,5 +69,15 @@ Los Reportes para la empresa FinantialTech Solutions tiene las siguientes caract
 
 ### 2. Factory
 
+### 3. Builder
+
+### 4. Decorator
+Permite añadir responsabilidades y transformaciones al contenido del reporte de forma dinámica y combinable en tiempo de ejecución 
+sin alterar el código de la clase Report original, cumpliendo con el principio Abierto/Cerrado (OCP).
+
+Se decidió aplicar los Decorators de manera externa al procesamiento de datos (Strategies) para mantener un acoplamiento débil. 
+De esta forma, las estrategias no conocen la existencia de las mejoras visuales o de cifrado, 
+permitiendo modificar las reglas de transformación del documento en el pipeline principal sin alterar la lógica de negocio
+de los roles de usuario.
 
 
