@@ -2,8 +2,9 @@
 ## Luis Jesús Ferrufino Burgos - 856214 
 
 # Tabla de Contenido
-- [Descripción del Proyecto](#descripción-del-proyecto)
-- [Patrones de diseño aplicados](#patrones-de-diseño-aplicados)
+- [Descripción del Proyecto](#1-descripción-del-proyecto)
+- [Patrones de diseño aplicados](#2-patrones-de-diseño-aplicados)
+- 
 
 ## 1. Descripción del Proyecto 
 

@@ -7,4 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Finantech.Solutions.Core\Finantech.Solutions.Core.csproj" />
+  </ItemGroup>
+
 </Project>
