@@ -35,11 +35,11 @@ do
                                 .ApplyFormatLayout()
                                 .Build();
 
-        Console.WriteLine($"-> [ÉXITO] Estructura de formato aplicada mediante el Builder de {menuConfig.SelectedFormat}.");
+        Console.WriteLine($"-> [ÉXITO] Reporte generado en formato: {menuConfig.SelectedFormat}.");
 
         // OUTPUT: Display final structured output report
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("\nRESULTADO DEL REPORTE GENERADO:");
+        Console.WriteLine("\nRESULTADO DEL REPORTE:");
         Console.ResetColor();
         Console.WriteLine(finalReport.Export());
     }

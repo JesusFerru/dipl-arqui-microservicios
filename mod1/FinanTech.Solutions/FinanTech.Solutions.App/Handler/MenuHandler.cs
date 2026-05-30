@@ -49,9 +49,9 @@ namespace FinanTech.Solutions.App.Handler
 
             // Select Output Format (Builder)
             Console.WriteLine("\n[Paso 3] Seleccione el Formato de Salida del Reporte:");
-            Console.WriteLine("1. PDF (Implementado)");
-            Console.WriteLine("2. Excel (Pendiente...)");
-            Console.WriteLine("3. CSV (Pendiente...)");
+            Console.WriteLine("1. PDF");
+            Console.WriteLine("2. Excel");
+            Console.WriteLine("3. CSV");
             Console.Write("Elija una opción (1-3): ");
 
             config.SelectedFormat = "PDF";

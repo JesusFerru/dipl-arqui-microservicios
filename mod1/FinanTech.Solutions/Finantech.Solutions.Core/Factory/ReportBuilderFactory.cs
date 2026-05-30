@@ -10,6 +10,8 @@ public static class ReportBuilderFactory
         return format.ToUpper() switch
         {
             "PDF" => new PdfReportBuilder(),
+            "EXCEL" => new ExcelReportBuilder(),
+            "CSV" => new CsvReportBuilder(),
             _ => throw new ArgumentException($"Formato '{format}' no soportado", nameof(format))
         };
     }
