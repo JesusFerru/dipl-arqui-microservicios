@@ -77,6 +77,7 @@ do
 
         Console.WriteLine("\nPress any key to continue...");
         Console.ReadKey();
+        Console.Clear();
 
         var deliveryChannel = MenuHandler.SendFinalReport();
         menuConfig.SelectChannel = deliveryChannel;
