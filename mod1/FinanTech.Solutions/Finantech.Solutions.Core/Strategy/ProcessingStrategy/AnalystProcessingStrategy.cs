@@ -15,7 +15,7 @@ public class AnalystProcessingStrategy : IProcessingStrategy
             ChartsList = new List<string> { "Graf 1: Curva de crecimiento de ingresos ", "Graf 2: Distribución de Gastos:", "Graf 3: ROI Heatmap" },
             Conclusions = "Indicadores de mercado sugieren un crecimiento sostenido en el próximo trimestre, con oportunidades significativas en el sector tecnológico. Se recomienda aumentar la inversión en activos relacionados con la innovación y diversificar el portafolio para mitigar riesgos.",
             ResponsibleSignature = "Analista Senior: Luis Jesús Ferrufino",
-            Annexes = new List<string> { "I: Supuestos macroeconómicos", " II: Comparativa de Datos Históricos" }
+            Annexes = new List<string> { "I: Supuestos macroeconómicos", "II: Comparativa de Datos Históricos" }
             // No incluye código encriptado
         };
     }

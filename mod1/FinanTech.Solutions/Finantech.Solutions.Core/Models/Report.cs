@@ -25,13 +25,13 @@ public class Report : IReportComponent
         showReport.AppendLine($"Reporte: {Title}");
         if (!string.IsNullOrEmpty(EncryptedCode)) showReport.AppendLine($"Codigo: {EncryptedCode}");
         showReport.AppendLine($"Fecha: {GenerationDate:yyyy-MM-dd}");
-        showReport.AppendLine($"Contenido: {Content}");
+        showReport.AppendLine($"\nContenido: {Content}");
 
-        if (!string.IsNullOrEmpty(DetailedInformation)) showReport.AppendLine($"Info detallada: {DetailedInformation}");
-        if (ChartsList.Count > 0) showReport.AppendLine($"Listado de gráficos: \n - {string.Join("\n - ", ChartsList)}");
+        if (!string.IsNullOrEmpty(DetailedInformation)) showReport.AppendLine($"\nInfo detallada: {DetailedInformation}");
+        if (ChartsList.Count > 0) showReport.AppendLine($"\nListado de gráficos: \n - {string.Join("\n - ", ChartsList)}");
 
-        showReport.AppendLine($"Conclusiones: {Conclusions}");
-        showReport.AppendLine($"Firma Responsable: {ResponsibleSignature}");
+        showReport.AppendLine($"\nConclusiones: {Conclusions}");
+        showReport.AppendLine($"\nFirma Responsable: {ResponsibleSignature}");
 
         if (Annexes.Count > 0) showReport.AppendLine($"Anexos: \n - {string.Join("\n - ", Annexes)}");
         showReport.AppendLine("=================================");
