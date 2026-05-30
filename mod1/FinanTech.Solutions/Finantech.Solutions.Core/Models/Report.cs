@@ -15,7 +15,7 @@ public class Report : IReportComponent
     public string ResponsibleSignature { get; set; } = string.Empty;
     public List<string> Annexes { get; set; } = [];
 
-    // Formato (PDF, Excel, CSV, Others)
+    // Format (PDF, Excel, CSV, Others)
     public string Format { get; set; } = string.Empty;
 
     public string Export()
