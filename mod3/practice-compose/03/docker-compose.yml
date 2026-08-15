@@ -1,0 +1,26 @@
+name: practica-03
+
+services:
+  
+  db: 
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD: dev-only
+    volumes:
+      - pgdata: /var/lib/postgresql/data
+volumes:
+  pgdata: 
+
+  # docker compose up -d
+  # docker compose exec db psql -U postgres 
+  ## -c "CREATE TABLE test (id SERIAL PRIMARY KEY, note TEXT);"
+
+  
+  # docker compose exec db psql -U postgres 
+  ## -c "INSERT INTO test (note) VALUES('persiste hasta -v');"
+  
+  # docker compose exec db psql -U postgres 
+  ## -c "SELECT * FROM test"
+  
+  #docker compose down
+  ## se mantiene el volumen sin cambios
