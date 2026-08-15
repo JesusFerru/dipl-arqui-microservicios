@@ -1,0 +1,151 @@
+
+Compose + Swarm
+Una arquitectura de microservicios es, en su forma más cruda, varios servicios coordinados. Compose es el banco de pruebas; Swarm, el primer salto multi-host.
+
+OBJETIVOS DE aprender
+
+1 Declarar varios servicios en un docker-compose.yml
+
+2 Networking entre servicios (DNS, port publishing)
+
+3 Healthchecks y orden de inicio (depends_on + condition)
+
+4 Volúmenes nombrados y su ciclo de vida
+
+5 Override files y perfiles para multi-stage
+
+6 Inicializar un cluster Swarm y deployar un stack
+
+7 Decidir cuándo Compose, cuándo Swarm, cuándo K8s
+
+Un orquestador single-host
+BLOQUE 1 — COMPOSE FUNDAMENTALS
+
+Compose toma un YAML declarativo y lo convierte en un sistema multi-container coherente en un solo host:
+
+SÍ ES
+Red default del proyecto donde cada servicio resuelve a los otros por nombre.
+
+Volúmenes con namespace del proyecto.
+
+Orden de inicio configurable con depends_on.
+
+Lifecycle unificado: up, down, ps, logs, exec.
+
+NO ES
+No es Kubernetes (no escala horizontalmente, no se recupera de caída de host, no hace rolling deploys).
+
+No es Swarm (no orquesta multi-host).
+
+No reemplaza el docker run (lo orquesta).
+
+MICROSERVICIOS — Cuándo usarlo: dev local, CI test stacks, single-VM deployments, pre-prod con paridad.
+
+
+Top-level keys
+YAML
+name: orders-platform                # project name (Spec 3.x)
+
+services:                           # mandatory
+  api:
+    ...
+  worker:
+    ...
+
+networks:                           # opcional
+  frontend:
+    ...
+
+volumes:                            # opcional
+  pgdata:
+    ...
+
+name
+Project name (prefijo de todos los recursos creados).
+
+services
+Único obligatorio. Contiene las definiciones de cada container.
+
+networks
+Declaración de redes nombradas que los servicios usan.
+
+volumes
+Declaración de volúmenes nombrados.
+
+configs / secrets
+Archivos de config / secretos (Swarm-aware).
+
+
+# Anatomía de un service
+
+services:
+  api:
+    image: myuser/api:1.4.2
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: ["--config", "/etc/api/config.yaml"]
+    ports:
+      - "8080:80"        # host:container
+    environment:
+      LOG_LEVEL: info
+      DB_HOST: db
+    env_file: ./api.env
+
+
+volumes:
+  - pgdata:/var/lib/api/data
+  - ./logs:/var/log/api  # bind mount
+depends_on:
+  db:
+    condition: service_healthy
+healthcheck:
+  test: ["CMD", "curl", "-f", ".../health"]
+  interval: 10s
+  timeout: 3s
+  retries: 3
+restart: unless-stopped
+networks:
+  - backend
+
+
+Cada key mapea a un flag de docker run o a metadata.
+
+# DNS automático dentro del proyecto
+Cuando hacés docker compose up, Compose:
+
+1 Crea una red default (<project>_default) tipo bridge.
+
+2 Cada servicio se conecta a esa red.
+
+3 El DNS embebido de Docker resuelve nombres de servicio a IPs internas.
+
+# 'api' puede hablar con 'db' usando el hostname 'db'
+services:
+  api:
+    environment:
+      DB_HOST: db        # nombre del servicio
+    depends_on:
+      - db
+  db:
+    image: postgres:16
+-------
+MICROSERVICIOS — Para exponer al host: ports: ["8080:80"]. Esto sí publica al exterior; el resto de la red queda interna. Usá el nombre del servicio, no IPs (cambian en cada recreate).
+
+# Persistencia con ciclo de vida explícito
+
+Tipo	Definición	Quién administra	Cuándo se borra
+Named volume	volumes: [pgdata:/var/lib/postgres/data]	Docker (/var/lib/docker/volumes/)	docker volume rm o down -v
+Bind mount	./host/path:/container/path	Vos	Cuando borrás el path del host
+Tmpfs	--tmpfs /tmp	Kernel (memoria)	Cuando el container muere
+
+
+Named volumes: Para datos persistentes de aplicación (DB, uploads).
+
+Bind mounts: Para desarrollo (montás el código y los cambios se ven sin rebuild).
+
+Tmpfs: Para datos sensibles o temporales (secretos, caches).
+
+MICROSERVICIOS — Cada servicio con estado tiene un volumen nombrado. Ese volumen es lo único que sobrevive a docker compose down.
+----------------------------
+

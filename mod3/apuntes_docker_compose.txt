@@ -1,0 +1,126 @@
+# Apuntes de Docker Compose y Swarm
+
+## 1. Introducción a Compose + Swarm
+Una arquitectura de microservicios es, en su forma más cruda, varios servicios coordinados. Compose es el banco de pruebas; Swarm, el primer salto multi-host.
+
+### Objetivos de la sesión:
+1. Declarar varios servicios en un docker-compose.yml
+2. Networking entre servicios (DNS, port publishing)
+3. Healthchecks y orden de inicio (depends_on + condition)
+4. Volúmenes nombrados y su ciclo de vida
+5. Override files y perfiles para multi-stage
+6. Inicializar un cluster Swarm y deployar un stack
+7. Decidir cuándo Compose, cuándo Swarm, cuándo K8s
+
+---
+
+## 2. Compose Fundamentals: Un orquestador single-host
+Compose toma un YAML declarativo y lo convierte en un sistema multi-container coherente en un solo host.
+
+### Qué ES:
+- Red default del proyecto donde cada servicio resuelve a los otros por nombre.
+- Volúmenes con namespace del proyecto.
+- Orden de inicio configurable con depends_on.
+- Lifecycle unificado: up, down, ps, logs, exec.
+
+### Qué NO ES:
+- No es Kubernetes (no escala horizontalmente, no se recupera de caída de host, no hace rolling deploys).
+- No es Swarm (no orquesta multi-host).
+- No reemplaza el docker run (lo orquesta).
+
+**Cuándo usarlo:** dev local, CI test stacks, single-VM deployments, pre-prod con paridad.
+
+---
+
+## 3. Top-level keys en docker-compose.yml
+- name: Project name (prefijo de todos los recursos creados).
+- services: Único obligatorio. Contiene las definiciones de cada container.
+- networks: Declaración de redes nombradas que los servicios usan.
+- volumes: Declaración de volúmenes nombrados.
+- configs / secrets: Archivos de config / secretos (Swarm-aware).
+
+Nota: "version" ya no se usa. La Compose Spec moderna lo ignora.
+
+---
+
+## 4. Anatomía de un Service
+Cada key mapea a un flag de docker run o a metadata.
+
+Ejemplo de configuración:
+services:
+  api:
+    image: myuser/api:1.4.2
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: ["--config", "/etc/api/config.yaml"]
+    ports:
+      - "8080:80" # host:container
+    environment:
+      LOG_LEVEL: info
+      DB_HOST: db
+    env_file: ./api.env
+
+volumes:
+  - pgdata:/var/lib/api/data
+  - ./logs:/var/log/api # bind mount
+depends_on:
+  db:
+    condition: service_healthy
+healthcheck:
+  test: ["CMD", "curl", "-f", ".../health"]
+  interval: 10s
+  timeout: 3s
+  retries: 3
+restart: unless-stopped
+networks:
+  - backend
+
+---
+
+## 5. DNS y Networking
+Cuando hacés docker compose up, Compose:
+1. Crea una red default (<project>_default) tipo bridge.
+2. Cada servicio se conecta a esa red.
+3. El DNS embebido de Docker resuelve nombres de servicio a IPs internas.
+
+Nota: Usá el nombre del servicio, no IPs (cambian en cada recreate).
+
+Para exponer al host: ports: ["8080:80"]. Esto sí publica al exterior; el resto de la red queda interna.
+
+---
+
+## 6. Persistencia con ciclo de vida explícito
+- Named volume (volumes: [pgdata:/var/lib/postgres/data]): Administrado por Docker. Se borra con `docker volume rm` o `down -v`. Uso: Datos persistentes (DB, uploads).
+- Bind mount (./host/path:/container/path): Administrado por vos. Se borra al borrar el path del host. Uso: Desarrollo (ver cambios en código sin rebuild).
+- Tmpfs (--tmpfs /tmp): Administrado por el Kernel (memoria). Se borra cuando el container muere. Uso: Datos sensibles o temporales (secretos, caches).
+
+Cada servicio con estado tiene un volumen nombrado. Ese volumen es lo único que sobrevive a docker compose down.
+
+---
+
+## 7. Docker Compose: CLI esencial
+- Lifecycle:
+  - docker compose up -d: detached
+  - docker compose down: parar y borrar containers
+  - docker compose down -v: borrar también volúmenes
+  - docker compose ps: status
+  - docker compose logs -f: logs de todos
+  - docker compose logs api: logs de un servicio
+  - docker compose exec api sh: shell en un servicio
+- Build:
+  - docker compose build: reconstruir imágenes
+  - docker compose pull: actualizar imágenes
+- Validación:
+  - docker compose config: ver el YAML resuelto y validado (útil como debugger).
+- Escalar (single host, no Swarm):
+  - docker compose up -d --scale api=3
+
+---
+
+## 8. Patrones comunes (Compose Deep Dive)
+- Anti-pattern 1: secrets en el YAML. (BIEN: usar variables de entorno con ${VAR}).
+- Anti-pattern 2: bind mount de código en prod. (Acopla el path del host al deploy).
+- Anti-pattern 3: usar el tag latest. (BIEN: usar versión específica, MEJOR: usar hash de imagen SHA256).
+
+El docker-compose.yml es infraestructura. Va al repo, tiene review y se versiona.

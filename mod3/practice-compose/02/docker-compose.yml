@@ -1,0 +1,27 @@
+name: practica-02
+
+services:
+  api:
+    image:  alpine.3.20
+    command:
+      - sh
+      - -c
+      - "sleep 3 && echo intentando conectar a la bd... && nc -zv db 5432 || echo FALLO: la db no esta lista"
+    depends_on:
+      db:
+        condition: service_healthy
+  
+  db: 
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD: dev-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -u postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+      start_period: 30ss
+
+    
+# como se escribe docker compose correctamente, 
+# y como se gestionan dependencias correctamente
