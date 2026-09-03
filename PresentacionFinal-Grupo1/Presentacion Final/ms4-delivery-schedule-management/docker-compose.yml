@@ -1,0 +1,57 @@
+name: ms4-delivery-schedule-management
+
+services:
+  ms4-db:
+    image: postgres:17-alpine
+    container_name: ms4-delivery-schedule-management-db
+    environment:
+      POSTGRES_DB: delivery_schedule_management
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ms4-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d delivery_schedule_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  ms4-cache:
+    image: redis:7-alpine
+    container_name: ms4-delivery-schedule-management-cache
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  ms4-api:
+    image: franklin120/delivery-schedule-management:latest
+    container_name: ms4-delivery-schedule-management-api
+    ports:
+      - "8081:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__delivery-schedule-management-db: Host=ms4-db;Port=5432;Database=delivery_schedule_management;Username=admin;Password=password
+    networks: [backend]
+    depends_on:
+      ms4-db:
+        condition: service_healthy
+      ms4-cache:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ms4-db-data:
+
+networks:
+  backend:
