@@ -1,0 +1,17 @@
+name: nurtricenter-ms3
+
+services:
+  ms3-api:
+    image: jesusferru/nurtricenter-ms3:0.1.0
+    container_name: nurtricenter-ms3-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    env_file:
+      - .env
+    ports:
+      - "8083:8080"
+    networks: [backend]
+    restart: unless-stopped
+
+networks:
+  backend:

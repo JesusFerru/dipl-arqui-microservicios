@@ -1,0 +1,16 @@
+name: ms-nur-tricenter
+
+networks:
+  backend:
+
+include:
+  # DIEGO CABRERA ALVAREZ
+  - path: ./ms1-gestion-clinica-nutricional/docker-compose.yml
+  # ROBERT PEREZ LINO
+  - path: ./ms2-plans-and-recipes-catalog/docker-compose.yml
+  # LUIS JESUS FERRUFINO BURGOS 
+  - path: ./ms3-contracting-production/docker-compose.yml
+  # FRANKLIN ANDRE ROMERO PADILLA
+  - path: ./ms4-delivery-schedule-management/docker-compose.yml
+  # ANDRES SEBASTIAN GUERRERO CAMACHO
+  - path: ./ms5-logistics-and-delivery/docker-compose.yml
