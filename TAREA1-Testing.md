@@ -4,7 +4,7 @@ Certifica el avance de la Actividad 1 (taller de Unit Tests) sobre el caso de
 estudio del proyecto final, aplicado al microservicio **Nurtricenter MS3**.
 
 **Repositorio:** https://github.com/JesusFerru/dipl-arqui-microservicios
-**Rama:** `feat/testing`
+**Rama:** `tarea-1-testing`
 **Lenguaje:** C# / .NET 8 (el mismo seleccionado para el microservicio desde el
 Módulo 2).
 
