@@ -1,0 +1,312 @@
+================================================================================
+PLAN — Docker Compose para el microservicio Nurtricenter (MS3)
+Punto 1 de la actividad grupal
+================================================================================
+
+Este documento explica QUÉ vamos a hacer, POR QUÉ cada archivo lleva lo que
+lleva, y QUÉ decisiones tomamos (para poder defenderlas si el docente pregunta).
+No toca nada de git ni de los otros módulos del repositorio: SOLO la carpeta
+Nurtricenter/ y este archivo de plan.
+
+
+--------------------------------------------------------------------------------
+0. OBJETIVO Y ALCANCE
+--------------------------------------------------------------------------------
+Entregable (punto 1): un docker-compose.yml en el repositorio con las
+instrucciones para levantar el entorno de trabajo del microservicio.
+
+Alcance:
+  - SOLO el microservicio Nurtricenter (solución .NET 8 con 4 proyectos).
+  - NO tocar git, NO tocar mod1/mod2/mod3 (salvo este .txt), NO tocar otros
+    microservicios.
+  - Levantar ÚNICAMENTE la API. NO instanciamos una base de datos local:
+    la API se conecta a la base PostgreSQL YA HOSTEADA (Neon.tech) usando la
+    connection string que está en appsettings.Development.json.
+
+Resultado al final: `docker compose up -d --build` deja corriendo la API
+(HTTP, puerto 8080) conectada a la base Neon hosteada, con Swagger disponible
+y (en Development) migración + seed automáticos contra esa base.
+
+
+--------------------------------------------------------------------------------
+1. DECISIONES DE DISEÑO (y su justificación)
+--------------------------------------------------------------------------------
+D1. Ubicación de los archivos: raíz de Nurtricenter/  (no dentro de Nurtricenter.Api/)
+    POR QUÉ: la Api referencia 3 proyectos hermanos (Core, Application,
+    Infrastructure). Para compilar, el build context de Docker debe "ver" los 4
+    proyectos. Por eso el Dockerfile y el docker-compose.yml van en Nurtricenter/
+    y el context es "." (la carpeta de la solución).
+
+D2. Solo HTTP (puerto 8080), sin HTTPS.
+    POR QUÉ: en un contenedor no hay certificado dev instalado. `UseHttpsRedirection()`
+    (hoy en Program.cs) intenta redirigir HTTP -> HTTPS y, sin puerto/cert HTTPS,
+    genera un warning o un redirect roto. Para un entorno de trabajo local lo
+    correcto es HTTP plano; TLS se termina en un proxy/load-balancer en prod.
+
+D3. SIN contenedor de base de datos y SIN volumen.
+    POR QUÉ: la base ya está hosteada (Neon.tech) y la API se conecta a ella por
+    su connection string. Instanciar un Postgres local sería duplicar la fuente
+    de verdad y agregar complejidad innecesaria. Como no hay ningún servicio con
+    estado dentro del compose, tampoco hace falta volumen de persistencia.
+
+D4. La connection string sale de appsettings.Development.json (la de Neon).
+    POR QUÉ: ese archivo ya contiene la variable "ConnectionStrings:DefaultConnection"
+    apuntando a Neon (Host=ep-odd-cell...neon.tech). No la copiamos al YAML:
+    dejamos que la app la lea sola. Se ignora el appsettings.json base (el que
+    apunta a localhost), porque en Development el archivo de Development lo
+    sobrescribe.
+
+D5. ASPNETCORE_ENVIRONMENT=Development.
+    POR QUÉ: es lo que hace 3 cosas a la vez:
+      1) carga appsettings.Development.json (donde está la conexión a Neon);
+      2) ejecuta MigrateAsync() + SeedAsync() al arrancar (crea/esquema y datos);
+      3) activa Swagger.
+    Sin esta variable, la app usaría la conexión localhost y NO migraría.
+
+D6. NO usamos depends_on ni healthcheck.
+    POR QUÉ: ya no hay un segundo contenedor del que depender. La API solo se
+    conecta a un servicio externo (Neon). depends_on/healthcheck aplicaban
+    cuando teníamos la DB como contenedor local; con la DB hosteada no hay orden
+    de arranque entre contenedores que garantizar.
+
+D7. Imagen base multi-stage (sdk:8.0 para compilar, aspnet:8.0 para correr).
+    POR QUÉ: separa el SDK del runtime -> imagen final mucho más chica y segura
+    (no lleva compilador ni herramientas de build).
+
+
+--------------------------------------------------------------------------------
+2. ARCHIVOS A CREAR / EDITAR (y por qué cada parte)
+--------------------------------------------------------------------------------
+
+--- 2.1. Nurtricenter/Dockerfile  (NUEVO) -------------------------------------
+    POR QUÉ EXISTE: el compose con `build:` necesita una receta para construir
+    la imagen de la API. Hoy no hay ningún Dockerfile en el proyecto.
+
+    Contenido propuesto:
+
+      # ETAPA 1 — build (tiene el SDK para compilar)
+      FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+      WORKDIR /src
+
+      # Copio SOLO los .csproj y restauro primero: aprovecha el cache de capas.
+      # Si un .csproj no cambia, Docker reutiliza la capa y no re-restaura.
+      COPY ["Nurtricenter.Api/Nurtricenter.MS3.Api.csproj", "Nurtricenter.Api/"]
+      COPY ["Nurtricenter.MS3.Core/Nurtricenter.MS3.Core.csproj", "Nurtricenter.MS3.Core/"]
+      COPY ["Nurtricenter.MS3.Application/Nurtricenter.MS3.Application.csproj", "Nurtricenter.MS3.Application/"]
+      COPY ["Nurtricenter.MS3.Infrastructure/Nurtricenter.MS3.Infrastructure.csproj", "Nurtricenter.MS3.Infrastructure/"]
+      RUN dotnet restore "Nurtricenter.Api/Nurtricenter.MS3.Api.csproj"
+
+      # Copio el resto del código y publico en modo Release
+      COPY . .
+      RUN dotnet publish "Nurtricenter.Api/Nurtricenter.MS3.Api.csproj" -c Release -o /app/publish --no-restore
+
+      # ETAPA 2 — runtime (solo lo necesario para correr)
+      FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+      WORKDIR /app
+      EXPOSE 8080
+      ENV ASPNETCORE_URLS=http://+:8080
+      COPY --from=build /app/publish .
+      ENTRYPOINT ["dotnet", "Nurtricenter.MS3.Api.dll"]
+
+    Notas clave:
+      - ENTRYPOINT usa "Nurtricenter.MS3.Api.dll" (VERIFICADO: es el nombre real
+        del assembly; la carpeta se llama Nurtricenter.Api pero el .csproj es
+        Nurtricenter.MS3.Api.csproj).
+      - EXPOSE 8080 + ASPNETCORE_URLS=http://+:8080 fuerzan HTTP en el puerto 8080
+        (consistente con D2).
+      - El "COPY . ." incluye appsettings.Development.json en la imagen: ES LO QUE
+        QUEREMOS, porque de ahí sale la connection string de Neon (D4).
+
+--- 2.2. Nurtricenter/.dockerignore  (NUEVO) ----------------------------------
+    POR QUÉ EXISTE: sin esto, el build context le manda a Docker TODOS los
+    bin/, obj/, .vs/ (hay más de 360 archivos de compilación).
+
+    Contenido propuesto:
+
+      **/bin/
+      **/obj/
+      **/.vs/
+      .git/
+      .gitignore
+      *.md
+      Dockerfile
+      docker-compose*.yml
+
+    IMPORTANTE: NO se ignora appsettings*.json. Necesitamos que
+    appsettings.Development.json entre en la imagen (D4). El .gitignore del repo
+    sí lo excluye de GIT, pero eso no afecta al build de Docker (Docker usa
+    .dockerignore, no .gitignore).
+
+--- 2.3. Nurtricenter/docker-compose.yml  (NUEVO) -----------------------------
+    POR QUÉ EXISTE: es el entregable del punto 1. Declara el ÚNICO servicio (la
+    API) y cómo se conecta a la base hosteada.
+
+    Contenido propuesto:
+
+      name: nurtricenter-ms3
+
+      services:
+        api:
+          build:
+            context: .
+            dockerfile: Dockerfile
+          environment:
+            ASPNETCORE_ENVIRONMENT: Development
+          ports:
+            - "8080:8080"
+
+    Notas clave:
+      - Un solo servicio. Sin db, sin volumes, sin depends_on (D3, D6).
+      - ASPNETCORE_ENVIRONMENT=Development es la ÚNICA variable necesaria (D5).
+        La connection string NO se pone acá: la app la lee de
+        appsettings.Development.json, que ya viaja dentro de la imagen.
+      - No se usa `version:` (la Compose Spec moderna lo ignora, según apuntes).
+
+    Opcional (si más adelante querés sacar la conexión del archivo y manejarla
+    desde el compose, p.ej. para que cada compañero use su propia base):
+      environment:
+        ASPNETCORE_ENVIRONMENT: Development
+        ConnectionStrings__DefaultConnection: "Host=TU_HOST;Database=neondb;Username=TU_USER;Password=TU_PASS;SSL Mode=Require;Trust Server Certificate=true"
+    El doble guion bajo (__) es como .NET mapea "ConnectionStrings:DefaultConnection".
+
+--- 2.4. Nurtricenter/Nurtricenter.Api/Program.cs  (EDITAR, mínimo) -----------
+    POR QUÉ: para "solo HTTP" hay que sacar la redirección HTTPS.
+
+    Cambio: quitar (o comentar) esta línea:
+
+      app.UseHttpsRedirection();
+
+    Opción A (recomendada para el entregable): eliminarla y dejar un comentario
+    "// HTTP only (Docker, sin certificado HTTPS)".
+
+    Opción B (si querés conservar HTTPS al correr local con Visual Studio):
+    condicionarla con una variable de entorno, p.ej.:
+      if (!builder.Configuration.GetValue<bool>("DOCKER_HTTP_ONLY", false))
+          app.UseHttpsRedirection();
+    y en el compose agregar DOCKER_HTTP_ONLY=true. Para el entregable de la clase
+    la Opción A es suficiente.
+
+
+--------------------------------------------------------------------------------
+3. PASOS A EJECUTAR (en orden)
+--------------------------------------------------------------------------------
+1. Crear  Nurtricenter/Dockerfile            (contenido 2.1)
+2. Crear  Nurtricenter/.dockerignore         (contenido 2.2)
+3. Editar Nurtricenter/Nurtricenter.Api/Program.cs  -> quitar UseHttpsRedirection (2.4)
+4. Crear  Nurtricenter/docker-compose.yml    (contenido 2.3)
+5. Validar el compose (sin levantar nada):
+       cd Nurtricenter
+       docker compose config
+   -> debe imprimir el YAML resuelto sin errores.
+6. Levantar el entorno (build + up):
+       docker compose up -d --build
+7. Ver estado:
+       docker compose ps
+   -> debe aparecer el servicio "api" en estado running/Up.
+8. Probar el healthcheck (verifica conexión a la base Neon):
+       curl http://localhost:8080/health
+   -> debe responder 200 con { status: healthy, database: connected }.
+   (también se puede abrir http://localhost:8080/swagger en el navegador,
+    porque con Development el Swagger está activo.)
+9. Ver logs si algo falla:
+       docker compose logs -f api
+10. Bajar el entorno:
+       docker compose down
+
+
+--------------------------------------------------------------------------------
+4. POSIBLES PREGUNTAS DEL DOCENTE (y qué responder)
+--------------------------------------------------------------------------------
+P: "¿Por qué Compose y no Kubernetes/Swarm?"
+R: El objetivo es un entorno de trabajo local en un solo host. Compose es el
+   banco de pruebas single-host (dev local / CI), justo lo que pide la consigna.
+   Swarm/K8s son para multi-host y orquestación en producción, no para este
+   entregable.
+
+P: "¿Por qué NO hay un contenedor de base de datos?"
+R: La base ya está hosteada (Neon.tech) y la API se conecta a ella por su
+   connection string. Instanciar un Postgres local duplicaría la fuente de
+   verdad y agregaría complejidad. El microservicio queda stateless respecto a
+   la infraestructura local: lo único que se levanta es la API.
+
+P: "¿Por qué no hay volumen de persistencia?"
+R: No hay ningún servicio con estado dentro del compose (no hay DB local), así
+   que no hay datos que persistan en el contenedor. Los volúmenes son para
+   servicios con estado.
+
+P: "¿Cómo llega la connection string al contenedor?"
+R: Por appsettings.Development.json, que se copia dentro de la imagen en el
+   build. Con ASPNETCORE_ENVIRONMENT=Development, la app carga ese archivo
+   (sobrescribiendo el appsettings.json base que apunta a localhost) y usa la
+   conexión a Neon.
+
+P: "¿Por qué HTTP y no HTTPS?"
+R: En el contenedor no hay certificado. HTTPS se termina en un proxy/balanceador
+   en producción. Para desarrollo local, HTTP plano es lo estándar y evita
+   redirects rotos.
+
+P: "¿Por qué ASPNETCORE_ENVIRONMENT=Development?"
+R: Porque hace 3 cosas: carga appsettings.Development.json (la conexión a Neon),
+   ejecuta MigrateAsync + Seed automáticos, y activa Swagger.
+
+P: "¿Por qué ya no hay depends_on ni healthcheck?"
+R: depends_on/healthcheck sirven para ordenar el arranque ENTRE contenedores.
+   Acá hay un solo contenedor y la dependencia es un servicio externo (Neon),
+   así que no aplican.
+
+P: "¿Por qué la imagen final usa aspnet:8.0 y no sdk:8.0?"
+R: Multi-stage: el SDK solo se usa para compilar; el runtime no lo necesita.
+   Imagen final más liviana y con menor superficie de ataque.
+
+
+--------------------------------------------------------------------------------
+5. NOTAS / ADVERTENCIAS (aparte del entregable)
+--------------------------------------------------------------------------------
+1) CREDENCIAL REAL: appsettings.Development.json contiene credenciales reales de
+   Neon (usuario + contraseña). El .gitignore ya lo excluye de GIT, pero la
+   contraseña vive en el disco y también viaja dentro de la imagen al hacer
+   build. Recomiendo ROTAR esa contraseña de Neon.
+
+2) REPRODUCIBILIDAD ENTRE COMPAÑEROS: como appsettings.Development.json está en
+   el .gitignore, cuando otro miembro del grupo clona el repo NO tendrá ese
+   archivo (ni la conexión a Neon). Para el punto 1 individual no es problema
+   (usás tu archivo local); para el punto 2 (grupal) habría que decidir cómo
+   comparte cada uno su conexión (p.ej. vía variable de entorno en el compose,
+   ver la nota "Opcional" en 2.3).
+
+3) MIGRACIÓN AUTOMÁTICA CONTRA NEON: con Development, la API ejecuta
+   MigrateAsync() + SeedAsync() sobre la base Neon al arrancar. Si la base ya
+   tiene el esquema y datos, es un no-op (MigrateAsync aplica solo pendientes y
+   el seed verifica que no haya registros). Tenerlo presente si no querés que
+   el contenedor toque la base hosteada.
+================================================================================
+ COMMANDOS
+
+La contraseña real quedó solo en Nurtricenter/.env; en el plan dejé placeholders para no filtrar nada si ese .txt se commitea.
+
+Siguiente paso: los comandos a aplicar
+
+En orden (desde la carpeta Nurtricenter):
+
+# 1. Validar el compose (no levanta nada, solo chequea el YAML)
+cd Nurtricenter
+docker compose config
+
+# 2. Construir la imagen + levantar el contenedor
+docker compose up -d --build
+
+# 3. Ver el estado del servicio
+docker compose ps
+
+# 4. Probar salud y conexión a Neon
+curl http://localhost:8080/health
+# -> esperado: 200 { status: healthy, database: connected }
+
+# 5. Swagger (activo por Development)
+# abrir en navegador: http://localhost:8080/swagger
+
+# 6. Logs si algo falla
+docker compose logs -f api
+
+# 7. Bajar (sin borrar nada, no hay volumen)
+docker compose down
