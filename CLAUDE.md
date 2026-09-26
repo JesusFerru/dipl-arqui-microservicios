@@ -23,6 +23,8 @@ Arquitectura por capas sobre .NET 8, con DDD y CQRS.
 | `Nurtricenter.Api` | Endpoints de FastEndpoints, arranque y Swagger. |
 | `Nurtricenter.MS3.Tests` | Pruebas unitarias. Usa mocks. |
 | `Nurtricenter.MS3.IntegrationTests` | Pruebas de integración. Usa `WebApplicationFactory` y SQLite in-memory. |
+| `Nurtricenter.MS3.PactTests.Consumer` | Pruebas de contrato, lado consumer. Genera `pacts/*.json` con PactNet. |
+| `Nurtricenter.MS3.PactTests.Provider` | Pruebas de contrato, lado provider. Hostea la API real en un puerto TCP real y verifica el pacto. |
 
 MS3 se comunica con MS1, MS2, MS4 y MS5, que no existen en este repositorio. Esas
 integraciones están simuladas en `Nurtricenter.MS3.Application/Simulations/` con
@@ -84,3 +86,21 @@ escritor corrige.
 Las pruebas de integración **no** se ejecutan con PostgreSQL. `ApiFactory`
 sustituye el proveedor por SQLite in-memory, así que no hace falta Docker ni base
 de datos para correrlas.
+
+## Pruebas de contrato (Pact)
+
+El entorno ya está construido y validado con PactNet 5.0.1: el consumer genera
+un pacto real (`Nurtricenter.MS3.PactTests.Consumer/pacts/*.json`) y el
+provider lo verifica contra la API real, hosteada en un puerto TCP real (no
+`WebApplicationFactory` — PactNet no puede verificar contra un `TestServer` en
+memoria). Antes de tocar nada, lee el skill `pact-testing`: tiene restricciones
+no obvias del entorno (por ejemplo, una tilde en la descripción de una
+interacción corrompe el matching de forma silenciosa).
+
+Hay dos subagentes disponibles: `pact-writer` para escribir interacciones
+nuevas en ambos lados, y `pact-checker` para auditarlas de forma independiente
+después. El verificador no puede modificar archivos a propósito: reporta, y el
+escritor corrige.
+
+Tampoco requiere Docker ni PostgreSQL — el provider usa SQLite in-memory, igual
+que `Nurtricenter.MS3.IntegrationTests`.
