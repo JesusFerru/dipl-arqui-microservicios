@@ -1,0 +1,57 @@
+Estado actual
+
+Stack corriendo en estado limpio: api (1 réplica, puerto 8080), db (5432), cache (6379).
+
+Comandos en orden (para tu historial)
+
+# Compilar el proyecto (verificación)
+dotnet build Catalog.Api/Catalog.Api.csproj -c Release
+
+# Levantar el stack
+cd mod3/lab4
+docker compose up -d --build
+
+# Estado (deben quedar "healthy")
+docker compose ps
+
+# Probar endpoints
+curl http://localhost:8080/health
+curl http://localhost:8080/products
+curl -X POST http://localhost:8080/products -H "Content-Type: application/json" -d '{"name":"Keyboard","price":49.99}'
+curl http://localhost:8080/info
+# Swagger: http://localhost:8080/swagger/index.html
+
+# Verificar DNS (nombre de servicio -> IP interna)
+docker compose exec api getent hosts db
+-- Rpta: 172.19.0.3      db
+
+docker compose exec api getent hosts cache
+-- Rpta: 172.19.0.2      cache
+
+# Escalar: con puerto fijo FALLA
+docker compose up -d --scale api=3
+## [+] up 4/5
+ ✔ Container catalog-demo-api-1   Running                                                           0.0s
+ ✔ Container catalog-demo-db-1    Healthy                                                           0.8s
+ ✔ Container catalog-demo-cache-1 Healthy                                                           0.8s
+ - Container catalog-demo-api-3   Starting                                                          1.6s
+ ✔ Container catalog-demo-api-2   Created                                                           0.2s
+Error response from daemon: failed to set up container networking: driver failed programming external co
+nnectivity on endpoint catalog-demo-api-3 (292c2b458af0e29f1070a3143b2a450f2a3a34cc4a3a64508294a6389f3c9
+a5c): Bind for 0.0.0.0:8080 failed: port is already allocated
+
+What's next:
+    Debug this Compose error with Gordon → docker ai "help me fix this compose error"
+
+
+# Escalar bien (cambiar "8080:8080" -> "8080-8082:8080" en docker-compose.yml)
+docker compose up -d --scale api=3
+docker compose exec api getent hosts api          # 3 IPs (round-robin)
+for p in 8080 8081 8082; do curl http://localhost:$p/info; done   # 3 hostnames
+
+# Volver a 1 réplica y puerto único
+docker compose up -d --scale api=1
+
+# Bajar (al terminar)
+docker compose down       # mantiene los datos
+docker compose down -v    # borra también el volumen
