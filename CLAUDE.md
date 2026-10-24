@@ -19,17 +19,21 @@ Arquitectura por capas sobre .NET 8, con DDD y CQRS.
 |---|---|
 | `Nurtricenter.MS3.Core` | Agregados, value objects, eventos de dominio. Sin dependencias externas. |
 | `Nurtricenter.MS3.Application` | Comandos, consultas y handlers de MediatR. |
-| `Nurtricenter.MS3.Infrastructure` | EF Core sobre PostgreSQL, repositorios, unit of work. |
+| `Nurtricenter.MS3.Infrastructure` | EF Core sobre PostgreSQL, repositorios, unit of work. `Messaging/`: contratos de integración, relay del outbox, consumidores idempotentes y proyecciones del catálogo. `Discovery/`: registro en Consul. |
 | `Nurtricenter.Api` | Endpoints de FastEndpoints, arranque y Swagger. |
+| `Nurtricenter.MS3.WorkerService` | Proceso aparte: publica el outbox en RabbitMQ y consume los eventos de MS2. Única pieza que depende del transporte RabbitMQ. |
 | `Nurtricenter.MS3.Tests` | Pruebas unitarias. Usa mocks. |
 | `Nurtricenter.MS3.IntegrationTests` | Pruebas de integración. Usa `WebApplicationFactory` y SQLite in-memory. |
 | `Nurtricenter.MS3.PactTests.Consumer` | Pruebas de contrato, lado consumer. Genera `pacts/*.json` con PactNet. |
 | `Nurtricenter.MS3.PactTests.Provider` | Pruebas de contrato, lado provider. Hostea la API real en un puerto TCP real y verifica el pacto. |
 
-MS3 se comunica con MS1, MS2, MS4 y MS5, que no existen en este repositorio. Esas
-integraciones están simuladas en `Nurtricenter.MS3.Application/Simulations/` con
-identificadores deterministas, y los eventos salientes se registran en la tabla
-`OutgoingIntegrationEvents` en lugar de publicarse en un bus.
+MS3 se comunica con MS1, MS2, MS4 y MS5, que no existen en este repositorio. Las
+consultas síncronas siguen simuladas en `Nurtricenter.MS3.Application/Simulations/`
+con identificadores deterministas. Los eventos salientes se guardan en la tabla
+`OutgoingIntegrationEvents` (estado `Simulated` = pendiente) y el worker los publica
+en RabbitMQ; los planes y recetas que publica MS2 se proyectan en `CatalogPlans` y
+`CatalogRecipes`. Topología, contratos y cómo se integra con la plataforma del
+equipo (`nur-tricenter-local`, gateway, Consul): `Nurtricenter/docs/INTEGRACION_PLATAFORMA.md`.
 
 ## Comandos
 
